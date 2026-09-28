@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KBevStudios — Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --ink:#1C1B19; --paper:#EEEAE1; --paper-raised:#F6F3EC;
+    --safelight:#A6303A; --gold:#B8873A; --slate:#6B675E; --hairline:#D6D0C1; --good:#4B6B4F;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--paper); color:var(--ink); font-family:'IBM Plex Sans', sans-serif; font-size:15px; line-height:1.55;}
+
+  .topbar{background:var(--ink); color:var(--paper); padding:20px 32px 4px 32px;}
+  .topbar .kicker{font-size:11px; letter-spacing:.04em; color:#B8AF9E; margin-bottom:2px;}
+  .topbar h1{font-family:'Fraunces', serif; font-size:24px; font-weight:600; margin:0 0 14px 0; color:var(--paper);}
+  .pillnav{display:flex; flex-wrap:wrap; gap:8px; padding-bottom:16px;}
+  .pill{padding:8px 16px; border-radius:999px; border:1px solid #46423B; background:transparent; color:#C9C2B3; font-family:'IBM Plex Sans', sans-serif; font-size:13px; cursor:pointer; white-space:nowrap; position:relative;}
+  .pill:hover{background:#26241F; color:var(--paper);}
+  .pill.active{background:var(--safelight); border-color:var(--safelight); color:#fff;}
+  .pill .dot{display:none; position:absolute; top:-3px; right:-3px; width:8px;height:8px;border-radius:50%; background:var(--gold);}
+  .pill.urgent .dot{display:block;}
+
+  main{max-width:920px; margin:0 auto;}
+  .page{display:none; padding:44px 32px 72px 32px;}
+  .page.active{display:block;}
+
+  .eyebrow{font-family:'Fraunces', serif; font-style:italic; font-size:14px; color:var(--safelight); margin-bottom:10px;}
+  h2.title{font-family:'Fraunces', serif; font-weight:600; font-size:36px; margin:0 0 28px 0; color:var(--ink); line-height:1.1; padding-bottom:22px; border-bottom:1px solid var(--hairline);}
+  h3.section{font-family:'Fraunces', serif; font-size:19px; font-weight:600; margin:0 0 4px 0; color:var(--ink);}
+  .section-note{font-size:13px; color:var(--slate); margin:0 0 16px 0;}
+  .block{margin-bottom:36px;}
+
+  ul.tasklist{list-style:none; margin:0; padding:0;}
+  ul.tasklist li{display:flex; gap:12px; padding:9px 0; border-bottom:1px solid var(--hairline); font-size:14.5px;}
+  ul.tasklist li:last-child{border-bottom:none;}
+  ul.tasklist li .box{width:14px;height:14px; border:1.5px solid var(--slate); margin-top:3px; flex-shrink:0;}
+
+  table.pipe{width:100%; border-collapse:collapse; font-size:14px; margin-bottom:8px;}
+  table.pipe th{text-align:left; font-weight:600; font-size:11.5px; color:var(--slate); padding:0 10px 8px 0; border-bottom:1px solid var(--ink);}
+  table.pipe td{padding:9px 10px 9px 0; border-bottom:1px solid var(--hairline); vertical-align:top;}
+  table.pipe td:first-child{font-weight:500;}
+  .status{display:inline-block; font-size:11.5px; padding:2px 8px; border-radius:3px; border:1px solid var(--hairline); color:var(--slate); white-space:nowrap;}
+  .status.open{border-color:var(--slate); color:var(--slate);}
+  .status.active{border-color:var(--gold); color:#8A611E;}
+  .status.next{border-color:var(--safelight); color:var(--safelight);}
+  .status.good{border-color:var(--good); color:var(--good);}
+
+  .backlog-item{padding:14px 16px; background:var(--paper-raised); border:1px solid var(--hairline); margin-bottom:10px;}
+  .backlog-item.priority{border-left:3px solid var(--safelight);}
+  .backlog-item .tag{font-size:11px; color:var(--safelight); margin-bottom:4px; display:block;}
+
+  .autonote{background:var(--paper-raised); border:1px solid var(--hairline); border-left:3px solid var(--gold); padding:14px 18px; font-size:13.5px; color:#3A372F; margin-top:6px;}
+  .autonote .lbl{font-size:11px; letter-spacing:.03em; color:var(--gold); display:block; margin-bottom:6px;}
+  .verify{font-size:12px; color:var(--safelight); font-style:italic;}
+  .livebadge{font-size:10.5px; color:var(--good); border:1px solid var(--good); padding:2px 7px; border-radius:3px; margin-left:8px; vertical-align:middle;}
+  .offlinebadge{font-size:10.5px; color:var(--slate); border:1px dashed var(--slate); padding:2px 7px; border-radius:3px; margin-left:8px; vertical-align:middle;}
+
+  .cardgrid{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:36px;}
+  .pcard{background:var(--paper-raised); border:1px solid var(--hairline); padding:18px 20px; cursor:pointer;}
+  .pcard:hover{border-color:var(--slate);}
+  .pcard h4{font-family:'Fraunces', serif; font-size:18px; margin:0 0 8px 0;}
+  .pcard p{font-size:13px; color:var(--slate); margin:0;}
+  .urgentbox{background:#2A1416; border:1px solid var(--safelight); color:#F1DEDF; padding:18px 22px; margin-bottom:36px;}
+  .urgentbox h3{font-family:'Fraunces', serif; color:#E7A7AC; margin:0 0 10px 0; font-size:16px;}
+  .urgentbox ul{margin:0; padding-left:18px;}
+  .urgentbox li{margin-bottom:6px; font-size:13.5px;}
+
+  .roadmap-step{display:flex; gap:18px; margin-bottom:28px;}
+  .roadmap-step .marker{width:8px;height:8px;border-radius:50%; background:var(--safelight); margin-top:8px; flex-shrink:0;}
+  .roadmap-step .body h4{font-family:'Fraunces', serif; font-size:17px; margin:0 0 6px 0;}
+  .roadmap-step .body p{margin:0 0 8px 0; font-size:14px; color:#3A372F;}
+
+  /* Read-only to-do rows */
+  .todo-row{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--hairline);}
+  .todo-row .txt{flex:1; font-size:14.5px;}
+  .todo-row.is-completed .txt{text-decoration:line-through; color:var(--slate);}
+  .todo-row .due{font-size:12px; color:var(--slate); white-space:nowrap;}
+  .completed-toggle{font-size:12.5px; color:var(--slate); background:none; border:none; cursor:pointer; text-decoration:underline; margin-top:10px; padding:0;}
+  .completed-list{display:none; margin-top:10px;}
+  .completed-list.show{display:block;}
+  .empty-note{font-size:13px; color:var(--slate); font-style:italic; padding:8px 0;}
+
+  /* Read-only contact cards */
+  .orgcard{border:1px solid var(--hairline); background:var(--paper-raised); margin-bottom:12px;}
+  .orgcard-head{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; cursor:pointer; gap:10px;}
+  .orgcard-head .name{font-weight:600; font-size:14.5px;}
+  .orgcard-body{display:none; padding:0 16px 16px 16px; border-top:1px solid var(--hairline);}
+  .orgcard-body.show{display:block;}
+  .notelog{margin:12px 0;}
+  .noteentry{padding:10px 0; border-bottom:1px dashed var(--hairline); font-size:13px;}
+  .noteentry:last-child{border-bottom:none;}
+  .noteentry .meta{font-size:11px; color:var(--slate); margin-bottom:3px;}
+  .noteentry .todoflag{font-size:10.5px; color:var(--safelight); border:1px solid var(--safelight); padding:1px 6px; border-radius:3px; margin-left:6px;}
+
+  /* Podcast guest rows */
+  .guestrow{border:1px solid var(--hairline); background:var(--paper-raised); margin-bottom:8px;}
+  .guestrow-main{display:flex; align-items:center; gap:14px; padding:12px 16px; flex-wrap:wrap;}
+  .guestrow .guest{font-weight:600; font-size:14px; min-width:140px;}
+  .guestrow .home{font-size:12.5px; color:var(--slate); min-width:120px;}
+  .guestrow .smallbtn{font-size:11px; padding:5px 10px; border:1px solid var(--slate); background:none; color:var(--slate); cursor:pointer; white-space:nowrap; margin-left:auto;}
+  .guestrow .smallbtn + .smallbtn{margin-left:6px;}
+  .guestrow .smallbtn:hover{border-color:var(--ink); color:var(--ink);}
+  .guestrow .gencontent{padding:0 16px 14px 16px; display:none;}
+  .guestrow .gencontent.show{display:block;}
+  .guestrow .gencontent .glabel{font-size:11px; color:var(--gold); letter-spacing:.03em; margin-bottom:4px;}
+  .guestrow .gencontent .txtbox{width:100%; font-size:13px; padding:10px; border:1px solid var(--hairline); background:var(--paper); margin-bottom:6px; white-space:pre-wrap;}
+  .copybtn{font-size:11px; padding:5px 10px; border:1px solid var(--good); color:var(--good); background:none; cursor:pointer;}
+  .copybtn:hover{background:var(--good); color:#fff;}
+
+  @media (max-width: 760px){
+    .page{padding:32px 18px 60px 18px;}
+    .cardgrid{grid-template-columns:1fr;}
+    .topbar{padding:18px 18px 4px 18px;}
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="kicker">COMMAND CENTER — LIVE READ</div>
+    <h1>KBevStudios</h1>
+    <nav class="pillnav">
+      <button class="pill urgent active" data-page="archive">Hip Hop Dance Archive<span class="dot"></span></button>
+      <button class="pill urgent" data-page="sales">Print &amp; Photo Sales<span class="dot"></span></button>
+      <button class="pill" data-page="podcast">My Home Is Special</button>
+      <button class="pill" data-page="newsletter">KBevStudios Newsletter</button>
+      <button class="pill urgent" data-page="backlog">Creative Backlog<span class="dot"></span></button>
+      <button class="pill urgent" data-page="studio">Chicago Studio Lease<span class="dot"></span></button>
+      <button class="pill" data-page="tools">Shared Tools</button>
+      <button class="pill" data-page="roadmap">Automation Roadmap</button>
+      <button class="pill" data-page="overview">Overview</button>
+    </nav>
+  </div>
+
+  <main>
+
+    <!-- ARCHIVE -->
+    <section class="page active" id="archive">
+      <div class="eyebrow">Archive</div>
+      <h2 class="title">Hip Hop Dance Archive</h2>
+
+      <div class="block">
+        <h3 class="section">To-do list <span id="archive-todo-badge"></span></h3>
+        <p class="section-note">Read live from the tracker sheet. To add or complete something, tell Claude — this page just shows current state.</p>
+        <div id="archive-todo-list"></div>
+        <button class="completed-toggle" onclick="toggleCompleted('archive')" id="archive-completed-toggle">Show completed (0)</button>
+        <div class="completed-list" id="archive-completed-list"></div>
+      </div>
+
+      <div class="block">
+        <h3 class="section">Institutional partnerships</h3>
+        <p class="section-note">Click an org to see its notes log — who you talked to, what came of it, and when.</p>
+        <div id="archive-institutions-list"></div>
+      </div>
+
+      <div class="block">
+        <h3 class="section">Event promoter access</h3>
+        <p class="section-note">Getting invited to shoot events, not institutional legitimacy — different ask, same log format.</p>
+        <table class="pipe">
+          <tr><th>Promoter / Event</th><th>Status</th><th>Notes</th></tr>
+          <tr><td colspan="3" style="color:var(--slate); font-style:italic;">Tell Claude to add promoters as you identify them</td></tr>
+        </table>
+      </div>
+
+      <div class="block">
+        <h3 class="section">Feedback &amp; Reactions</h3>
+        <p class="section-note">Feedback contacts and event-promoter relationships in one list.</p>
+        <div id="archive-feedback-list"></div>
+      </div>
+
+      <div class="autonote">
+        <span class="lbl">HOW TO UPDATE THIS PAGE</span>
+        Tell Claude what happened — a new to-do, a note from a call, a status change — in a regular chat or Cowork task. Claude writes it to the tracker sheet. This page reads that sheet live every time you open it; nothing here is editable directly.
+      </div>
+    </section>
+
+    <!-- SALES -->
+    <section class="page" id="sales">
+      <div class="eyebrow">Sales</div>
+      <h2 class="title">Print &amp; Photo Sales</h2>
+
+      <div class="urgentbox">
+        <h3>Deadline — act now, don't wait on the system</h3>
+        <ul>
+          <li><strong>Black Creativity Exhibit</strong>, Museum of Science and Industry, Chicago — submission due <strong>October 11</strong>.</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3 class="section">To-do list <span id="sales-todo-badge"></span></h3>
+        <p class="section-note">Launch prep, gallery curation, and website work — read live from the tracker sheet.</p>
+        <div id="sales-todo-list"></div>
+        <button class="completed-toggle" onclick="toggleCompleted('sales')" id="sales-completed-toggle">Show completed (0)</button>
+        <div class="completed-list" id="sales-completed-list"></div>
+      </div>
+
+      <div class="block">
+        <h3 class="section">Contests &amp; exhibitions</h3>
+        <p class="section-note">Deadline-driven — each entry needs a real date so reminders can fire in time.</p>
+        <table class="pipe">
+          <tr><th>Exhibition</th><th>Deadline</th><th>Status</th></tr>
+          <tr><td>Black Creativity Exhibit — MSI Chicago</td><td>Oct 11, 2026</td><td><span class="status next">Submit now</span></td></tr>
+          <tr><td colspan="3" style="color:var(--slate); font-style:italic;">Tell Claude to add future exhibitions as they come up</td></tr>
+        </table>
+      </div>
+
+      <div class="block">
+        <h3 class="section">Commercial Opportunities</h3>
+        <p class="section-note">Placement conversations and commissioned-work leads — each contact holds its own dated notes log.</p>
+        <div id="sales-opportunities-list"></div>
+      </div>
+
+      <div class="autonote">
+        <span class="lbl">HOW TO UPDATE THIS PAGE</span>
+        Same as every pillar — tell Claude about a new lead, a conversation, or a to-do, and it writes to the tracker sheet. This page just reads it back.
+      </div>
+    </section>
+
+    <!-- PODCAST -->
+    <section class="page" id="podcast">
+      <div class="eyebrow">Podcast</div>
+      <h2 class="title">My Home Is Special</h2>
+
+      <div class="urgentbox">
+        <h3>Recurring release cadence</h3>
+        <ul>
+          <li><strong>Every episode releases the first Monday of the month.</strong> Recording/editing needs to be done heading into the weekend before.</li>
+          <li>Recurring reminder fires a few days ahead of that weekend to check readiness.</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3 class="section">Guest pipeline <span id="podcast-guest-badge"></span></h3>
+        <p class="section-note">Read live from your existing guest spreadsheet. Guest, home, status. Published guests are filtered out by default.</p>
+
+        <button class="completed-toggle" onclick="toggleShowAll()" id="podcast-filter-toggle" style="margin:0 0 12px 0;">Show all, including published</button>
+
+        <div id="podcast-guest-list"></div>
+      </div>
+
+      <div class="autonote">
+        <span class="lbl">HOW TO UPDATE THIS PAGE</span>
+        Tell Claude a guest's status changed, or ask it to draft the LinkedIn teaser or podcast post for a recorded episode — it writes the draft text back into the sheet. Once it's there, the Copy button on that guest's row is ready to paste wherever you need it.
+      </div>
+    </section>
+
+    <!-- NEWSLETTER -->
+    <section class="page" id="newsletter">
+      <div class="eyebrow">Newsletter</div>
+      <h2 class="title">KBevStudios Newsletter</h2>
+
+      <div class="block">
+        <h3 class="section">Launch issue</h3>
+        <ul class="tasklist">
+          <li><div class="box"></div> Recap the last 18 months since the sabbatical, podcast included</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3 class="section">Recurring format — four sections</h3>
+        <table class="pipe">
+          <tr><th>Section</th><th>Content</th></tr>
+          <tr><td>Picture of the month</td><td>One photo + the story behind it</td></tr>
+          <tr><td>Podcast update</td><td>Episodes launched or coming that month</td></tr>
+          <tr><td>What you've been shooting</td><td>Recent events/coverage</td></tr>
+          <tr><td>Personal update</td><td>Light, personal note</td></tr>
+        </table>
+      </div>
+
+      <div class="block">
+        <h3 class="section">Drafting engine</h3>
+        <p class="section-note">A skill interviews you section-by-section in a Claude chat, then drafts the full issue — output ready to paste into MailChimp.</p>
+      </div>
+
+      <div class="autonote">
+        <span class="lbl">WHERE AUTOMATION HELPS</span>
+        A monthly scheduled task prompts you that it's newsletter time — the interview happens in a Claude chat. <span class="verify">Delivery channel (WhatsApp vs. in-app) still to be confirmed once you're set up.</span>
+      </div>
+    </section>
+
+    <!-- BACKLOG -->
+    <section class="page" id="backlog">
+      <div class="eyebrow">Backlog</div>
+      <h2 class="title">Creative Ideas Backlog</h2>
+
+      <div class="block">
+        <h3 class="section">Flagged — near-term</h3>
+        <div class="backlog-item priority"><span class="tag">Near-term</span>Update the My Home Is Special homepage — needs a better look and feel.</div>
+        <div class="backlog-item priority"><span class="tag">Near-term</span>Capture the Fourth of July 2026 project and get it onto the website.</div>
+      </div>
+
+      <div class="block">
+        <h3 class="section">Open-ended</h3>
+        <div class="backlog-item">Pinterest board concepts — ideas to try, add as they come.</div>
+        <div class="backlog-item">Everything else — TBD, add freely.</div>
+      </div>
+
+      <div class="autonote">
+        <span class="lbl">WHERE AUTOMATION HELPS</span>
+        Lightest-touch pillar. A monthly scheduled review just asks: anything here ready to graduate into a real pillar task?
+      </div>
+    </section>
+
+    <!-- STUDIO -->
+    <section class="page" id="studio">
+      <div class="eyebrow">Studio</div>
+      <h2 class="title">Chicago Studio Lease</h2>
+
+      <div class="block">
+        <h3 class="section">Search criteria</h3>
+        <ul class="tasklist">
+          <li><div class="box"></div> Within ~15 minutes' drive of home</li>
+          <li><div class="box"></div> Not ground floor — one floor up or higher</li>
+          <li><div class="box"></div> ~600–800 sq ft</li>
+          <li><div class="box"></div> High ceilings</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3 class="section">Activity list</h3>
+        <table class="pipe">
+          <tr><th>Space / Contact</th><th>Status</th><th>Notes</th></tr>
+          <tr><td>MCA</td><td><span class="status next">Book a visit</span></td><td>First candidate found</td></tr>
+          <tr><td>Lauren Lowry</td><td><span class="status open">To connect</span></td><td>Can surface other options</td></tr>
+        </table>
+      </div>
+
+      <div class="autonote">
+        <span class="lbl">WHERE AUTOMATION HELPS</span>
+        A reminder to book the MCA visit, and a place to log each new space with a simple status.
+      </div>
+    </section>
+
+    <!-- SHARED TOOLS -->
+    <section class="page" id="tools">
+      <div class="eyebrow">Cross-cutting</div>
+      <h2 class="title">Shared tools</h2>
+
+      <div class="block">
+        <h3 class="section">Personal email drafting skill</h3>
+        <table class="pipe">
+          <tr><th>Trait</th><th>Direction</th></tr>
+          <tr><td>Tone</td><td>Professional, not overly formal</td></tr>
+          <tr><td>Structure</td><td>Short, direct paragraphs</td></tr>
+          <tr><td>Register</td><td>Genuine and sincere — most outreach is asking people to partner or work with you</td></tr>
+        </table>
+      </div>
+
+      <div class="block">
+        <h3 class="section">Notes &amp; to-do capture</h3>
+        <p class="section-note">Everything is captured by telling Claude, tagged to a pillar as you say it — never typed directly into this page.</p>
+        <ul class="tasklist">
+          <li><div class="box"></div> No deadline required up front — most to-dos won't have a real date</li>
+          <li><div class="box"></div> Open-ended items flag as stale after 2 weeks untouched (default — say a different window if needed)</li>
+          <li><div class="box"></div> Items with a genuine hard date still get a real due date and lead-time reminder</li>
+        </ul>
+      </div>
+
+      <div class="block">
+        <h3 class="section">Reminder logic</h3>
+        <table class="pipe">
+          <tr><th>Type</th><th>How it's flagged</th></tr>
+          <tr><td>Hard deadline</td><td>Lead-time reminder before the actual date (exhibitions)</td></tr>
+          <tr><td>Recurring deadline</td><td>Same, but repeats each cycle (podcast's monthly release)</td></tr>
+          <tr><td>Open-ended to-do</td><td>Flagged after 2 weeks untouched (default)</td></tr>
+        </table>
+      </div>
+
+      <div class="autonote">
+        <span class="lbl">DASHBOARD BEHAVIOR (FINAL MODEL)</span>
+        This page is a <strong>live read view</strong>, not an input form. All writes — new to-dos, notes, status changes, generated promo text — happen by telling Claude, which updates the tracker sheet directly. Every time you open this page, it fetches the current data from the sheet (via its published, read-only link) and renders it fresh. Nothing typed here is saved anywhere.
+      </div>
+    </section>
+
+    <!-- ROADMAP -->
+    <section class="page" id="roadmap">
+      <div class="eyebrow">Cross-cutting</div>
+      <h2 class="title">Automation &amp; connector roadmap</h2>
+
+      <div class="roadmap-step">
+        <div class="marker"></div>
+        <div class="body">
+          <h4>One shared Contacts &amp; Conversations sheet</h4>
+          <p>Every person or org across all six pillars lives in one Google Sheet tab, tagged by pillar, with status, a dated conversation log, and a next step + due date.</p>
+        </div>
+      </div>
+
+      <div class="roadmap-step">
+        <div class="marker"></div>
+        <div class="body">
+          <h4>Claude writes, the Sheet stores, this page reads</h4>
+          <p>Claude is the only thing that writes to the tracker sheet — through the Google Sheets connector, triggered by you telling it something in chat or Cowork. This HTML file never writes anything; it fetches the sheet's published CSV link live on every page load.</p>
+        </div>
+      </div>
+
+      <div class="roadmap-step">
+        <div class="marker"></div>
+        <div class="body">
+          <h4>Link existing spreadsheets, don't duplicate them</h4>
+          <p>The podcast guest sheet already exists — connect to it rather than rebuilding it.</p>
+        </div>
+      </div>
+
+      <div class="roadmap-step">
+        <div class="marker"></div>
+        <div class="body">
+          <h4>Scheduled tasks (Claude Cowork, personal Pro/Max)</h4>
+          <p>Weekly cross-pillar review ages open-ended to-dos and checks hard/recurring deadlines. Needs a paid personal plan, separate from your work account.</p>
+        </div>
+      </div>
+
+      <div class="roadmap-step">
+        <div class="marker"></div>
+        <div class="body">
+          <h4>Hosting</h4>
+          <p>Starts local on your Mac. Once the read/write behavior is trusted, move the same file to GitHub Pages so it's reachable from your phone and laptop too.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- OVERVIEW -->
+    <section class="page" id="overview">
+      <div class="eyebrow">Contact sheet</div>
+      <h2 class="title">Everything, at a glance</h2>
+
+      <div class="urgentbox">
+        <h3>Needs attention this week</h3>
+        <ul>
+          <li><strong>Black Creativity Exhibit (MSI Chicago)</strong> — submission due <strong>October 11</strong>.</li>
+          <li><strong>MCA studio space</strong> — appointment not yet booked.</li>
+          <li><strong>My Home Is Special homepage</strong> — flagged as near-term.</li>
+        </ul>
+      </div>
+
+      <div class="cardgrid">
+        <div class="pcard" data-page="archive"><h4>Hip Hop Dance Archive</h4><p>Launch, then turn the archive into something institutions want to partner with and promoters want to feed.</p></div>
+        <div class="pcard" data-page="sales"><h4>Print &amp; Photo Sales</h4><p>Turn the body of work into revenue and physical placement.</p></div>
+        <div class="pcard" data-page="podcast"><h4>My Home Is Special</h4><p>Keep the guest pipeline moving, automate promo content once recorded.</p></div>
+        <div class="pcard" data-page="newsletter"><h4>KBevStudios Newsletter</h4><p>Launch issue, then a light monthly rhythm.</p></div>
+        <div class="pcard" data-page="backlog"><h4>Creative Backlog</h4><p>Homepage refresh and the July 4th project are time-sensitive.</p></div>
+        <div class="pcard" data-page="studio"><h4>Chicago Studio Lease</h4><p>Criteria set, MCA to visit, Lauren Lowry to loop in.</p></div>
+      </div>
+
+      <p class="section-note">This page reads live from your Google Sheet. Update by telling Claude — never by typing here.</p>
+    </section>
+
+  </main>
+
+<script>
+  // =========================================================
+  // CONFIG — paste your "Publish to web" CSV links here once
+  // the KBevStudios Tracker sheet exists. Each tab published
+  // separately gives its own CSV URL (File > Share > Publish
+  // to web > select the tab > CSV format).
+  // =========================================================
+  const CSV_TODOS     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-Z407tMWCefupGpg8UTR0ZO78l-KNHjA_Z9BIXCTlf-6lUPxD8Ah5rO9-ojju3c0ALak9h9rrJfRM/pub?gid=0&single=true&output=csv";
+  const CSV_CONTACTS  = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT-Z407tMWCefupGpg8UTR0ZO78l-KNHjA_Z9BIXCTlf-6lUPxD8Ah5rO9-ojju3c0ALak9h9rrJfRM/pub?gid=1072019036&single=true&output=csv";
+  const CSV_GUESTS    = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSEjnt9IWo47HJJQCWeyy4SZW0RhSga_ZxS9T06Jov6G6GXTc08fRKYTfCvuIbo4V8BQkA5hFFsFzJC/pub?gid=0&single=true&output=csv";
+
+  // Expected columns:
+  //  TODOS:    Pillar, Item, DueDate, Status        (Status: active | completed)
+  //  CONTACTS: Pillar, Category, Name, Status, Date, Contact, Note, GeneratesTodo
+  //            (Category: institution | feedback | opportunity)
+  //  GUESTS:   Guest, Home, Status, Teaser, Post
+  //            (Status: emailed | scheduled | recorded | edits | published)
+
+  // ---- Navigation ----
+  const pills = document.querySelectorAll('.pill');
+  const pages = document.querySelectorAll('.page');
+  const cards = document.querySelectorAll('.pcard');
+  function goTo(id){
+    pages.forEach(p => p.classList.toggle('active', p.id === id));
+    pills.forEach(p => p.classList.toggle('active', p.dataset.page === id));
+    window.scrollTo({top:0, behavior:'instant'});
+  }
+  pills.forEach(p => p.addEventListener('click', () => goTo(p.dataset.page)));
+  cards.forEach(c => c.addEventListener('click', () => goTo(c.dataset.page)));
+
+  // ---- Generic CSV fetch ----
+  function fetchCSV(url){
+    return new Promise((resolve) => {
+      if(!url || url.startsWith("PASTE_")){ resolve(null); return; }
+      Papa.parse(url, {
+        download: true, header: true, skipEmptyLines: true,
+        complete: (res) => resolve(res.data),
+        error: () => resolve(null)
+      });
+    });
+  }
+
+  function badge(isLive){
+    return isLive ? '<span class="livebadge">live</span>' : '<span class="offlinebadge">not connected yet</span>';
+  }
+
+  // ---- To-do lists (grouped by Pillar) ----
+  async function loadTodos(){
+    const rows = await fetchCSV(CSV_TODOS);
+    ['archive','sales'].forEach(pillar => {
+      document.getElementById(pillar + '-todo-badge').innerHTML = badge(!!rows);
+      const mine = rows ? rows.filter(r => (r.Pillar || '').toLowerCase() === pillar) : [];
+      const active = mine.filter(r => (r.Status || '').toLowerCase() !== 'completed');
+      const completed = mine.filter(r => (r.Status || '').toLowerCase() === 'completed');
+
+      document.getElementById(pillar + '-todo-list').innerHTML = active.length
+        ? active.map(r => `<div class="todo-row"><div class="txt">${r.Item}</div><div class="due">${r.DueDate || ''}</div></div>`).join('')
+        : `<p class="empty-note">${rows ? 'Nothing active.' : 'Not connected yet — paste your published CSV URL into CSV_TODOS at the top of this file.'}</p>`;
+
+      document.getElementById(pillar + '-completed-list').innerHTML = completed
+        .map(r => `<div class="todo-row is-completed"><div class="txt">${r.Item}</div><div class="due">${r.DueDate || ''}</div></div>`).join('');
+      document.getElementById(pillar + '-completed-toggle').textContent = `Show completed (${completed.length})`;
+    });
+  }
+  function toggleCompleted(pillar){
+    document.getElementById(pillar + '-completed-list').classList.toggle('show');
+  }
+
+  // ---- Contact cards (grouped by Pillar + Category, notes grouped by Name) ----
+  function groupContacts(rows, pillar, category){
+    const mine = rows.filter(r => (r.Pillar||'').toLowerCase() === pillar && (r.Category||'').toLowerCase() === category);
+    const byName = {};
+    mine.forEach(r => {
+      if(!byName[r.Name]) byName[r.Name] = { name: r.Name, status: r.Status || '—', notes: [] };
+      if(r.Note) byName[r.Name].notes.push({date: r.Date, contact: r.Contact, text: r.Note, todo: (r.GeneratesTodo||'').toLowerCase() === 'yes'});
+      byName[r.Name].status = r.Status || byName[r.Name].status; // latest row wins
+    });
+    return Object.values(byName);
+  }
+
+  function contactCardHTML(item, idx, prefix){
+    const id = `${prefix}-${idx}`;
+    return `
+      <div class="orgcard">
+        <div class="orgcard-head" onclick="document.getElementById('${id}').classList.toggle('show')">
+          <div class="name">${item.name}</div>
+          <span class="status open">${item.status}</span>
+        </div>
+        <div class="orgcard-body" id="${id}">
+          <div class="notelog">
+            ${item.notes.length ? item.notes.map(n => `
+              <div class="noteentry"><div class="meta">${n.date} — ${n.contact}${n.todo ? '<span class="todoflag">→ to-do added</span>' : ''}</div>${n.text}</div>
+            `).join('') : '<p class="empty-note">No notes yet.</p>'}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function loadContacts(){
+    const rows = await fetchCSV(CSV_CONTACTS);
+    const live = !!rows;
+
+    const instTarget = document.getElementById('archive-institutions-list');
+    const fbTarget = document.getElementById('archive-feedback-list');
+    const oppTarget = document.getElementById('sales-opportunities-list');
+
+    if(!live){
+      const msg = '<p class="empty-note">Not connected yet — paste your published CSV URL into CSV_CONTACTS at the top of this file.</p>';
+      instTarget.innerHTML = msg; fbTarget.innerHTML = msg; oppTarget.innerHTML = msg;
+      return;
+    }
+    const inst = groupContacts(rows, 'archive', 'institution');
+    const fb = groupContacts(rows, 'archive', 'feedback');
+    const opp = groupContacts(rows, 'sales', 'opportunity');
+
+    instTarget.innerHTML = inst.length ? inst.map((i,idx) => contactCardHTML(i, idx, 'inst')).join('') : '<p class="empty-note">None yet.</p>';
+    fbTarget.innerHTML = fb.length ? fb.map((i,idx) => contactCardHTML(i, idx, 'fb')).join('') : '<p class="empty-note">None yet.</p>';
+    oppTarget.innerHTML = opp.length ? opp.map((i,idx) => contactCardHTML(i, idx, 'opp')).join('') : '<p class="empty-note">None yet.</p>';
+  }
+
+  // ---- Podcast guests ----
+  let showAllGuests = false;
+  const stageClass = { emailed:"open", scheduled:"open", recorded:"active", edits:"active", published:"good" };
+
+  function guestRowHTML(item){
+    const stage = (item.Status || '').toLowerCase();
+    const canShow = ['recorded','edits','published'].includes(stage) && (item.Teaser || item.Post);
+    return `
+      <div class="guestrow">
+        <div class="guestrow-main">
+          <div class="guest">${item.Guest}</div>
+          <div class="home">${item.Home || ''}</div>
+          <span class="status ${stageClass[stage] || 'open'}">${item.Status}</span>
+          ${item.Teaser ? `<button class="smallbtn" onclick="toggleGenContent(this)">Teaser</button>` : ''}
+          ${item.Post ? `<button class="smallbtn" onclick="toggleGenContent(this)">Post</button>` : ''}
+        </div>
+        ${item.Teaser ? `<div class="gencontent"><div class="glabel">LINKEDIN TEASER</div><div class="txtbox">${item.Teaser}</div><button class="copybtn" onclick="copyText(this)" data-text="${item.Teaser.replace(/"/g,'&quot;')}">Copy</button></div>` : ''}
+        ${item.Post ? `<div class="gencontent"><div class="glabel">PODCAST POST</div><div class="txtbox">${item.Post}</div><button class="copybtn" onclick="copyText(this)" data-text="${item.Post.replace(/"/g,'&quot;')}">Copy</button></div>` : ''}
+      </div>
+    `;
+  }
+
+  async function loadGuests(){
+    const rows = await fetchCSV(CSV_GUESTS);
+    document.getElementById('podcast-guest-badge').innerHTML = badge(!!rows);
+    if(!rows){
+      document.getElementById('podcast-guest-list').innerHTML = '<p class="empty-note">Not connected yet — paste your published CSV URL into CSV_GUESTS at the top of this file.</p>';
+      return;
+    }
+    const visible = showAllGuests ? rows : rows.filter(r => (r.Status||'').toLowerCase() !== 'published');
+    document.getElementById('podcast-guest-list').innerHTML = visible.length
+      ? visible.map(guestRowHTML).join('')
+      : '<p class="empty-note">No guests to show.</p>';
+  }
+  function toggleShowAll(){
+    showAllGuests = !showAllGuests;
+    document.getElementById('podcast-filter-toggle').textContent = showAllGuests ? 'Hide published' : 'Show all, including published';
+    loadGuests();
+  }
+  function toggleGenContent(btn){
+    // toggles the matching gencontent block (teaser or post) sitting in the same guestrow
+    const row = btn.closest('.guestrow');
+    const blocks = row.querySelectorAll('.gencontent');
+    const idx = btn.textContent.trim() === 'Teaser' ? 0 : 1;
+    if(blocks[idx]) blocks[idx].classList.toggle('show');
+  }
+  function copyText(btn){
+    navigator.clipboard.writeText(btn.dataset.text).then(() => {
+      const orig = btn.textContent;
+      btn.textContent = 'Copied';
+      setTimeout(() => btn.textContent = orig, 1200);
+    });
+  }
+
+  loadTodos();
+  loadContacts();
+  loadGuests();
+</script>
+</body>
+</html>
